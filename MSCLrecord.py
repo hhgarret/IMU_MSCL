@@ -1,5 +1,7 @@
 import sys
 
+import datetime as datetime
+
 sys.path.append('/usr/lib/python3.13/dist-packages')
 import os
 
@@ -89,8 +91,10 @@ starttime = time.time()
 
 print("UNIFIEDheader: ", UNIFIEDheader)
 # UNIFIEDfilepath ="/media/ncpa/4183-EE9B/UNIFIEDdata/MSCL_samples_"+str(starttime)+".txt"
-UNIFIEDfilepath = "/media/ncpa/4183-EE9B/UNIFIEDdata/MSCL_samples_" + datetime.datetime.now().strftime(
-    "%m_%d_%Y_%H_%M") + ".txt"
+# UNIFIEDfilepath = "/media/ncpa/4183-EE9B/UNIFIEDdata/MSCL_samples_" + datetime.datetime.now().strftime(
+#     "%m_%d_%Y_%H_%M") + ".txt"
+currdate = datetime.datetime.now()
+UNIFIEDfilepath = "/media/ncpa/4183-EE9B/UNIFIEDdata/MSCL_samples/" + currdate.strftime("%Y%m%d/%H%M00") +".txt"
 UNIFIEDfile = open(UNIFIEDfilepath, "wb")
 UNIFIEDfile.write(UNIFIEDheader)
 
@@ -174,8 +178,11 @@ while True:
             UNIFIEDcounter = 0
             if UNIFIEDfilecount < filestomake or filestomake == -1:  # if -1 always continue
                 # UNIFIEDfilepath = "/media/ncpa/4183-EE9B/UNIFIEDdata/MSCL_samples_"+str(starttime)+".txt"
-                UNIFIEDfilepath = "/media/ncpa/4183-EE9B/UNIFIEDdata/MSCL_samples_" + datetime.datetime.now().strftime(
-                    "%m_%d_%Y_%H_%M") + ".txt"
+                # UNIFIEDfilepath = "/media/ncpa/4183-EE9B/UNIFIEDdata/MSCL_samples_" + datetime.datetime.now().strftime(
+                #     "%m_%d_%Y_%H_%M") + ".txt"
+                currdate = datetime.datetime.now()
+                UNIFIEDfilepath = "/media/ncpa/4183-EE9B/UNIFIEDdata/MSCL_samples/" + currdate.strftime(
+                    "%Y%m%d/%H%M00") + ".txt"
                 UNIFIEDfile = open(UNIFIEDfilepath, "wb")
                 recreate_UNIFIEDheader()
                 UNIFIEDfile.write(UNIFIEDheader)
