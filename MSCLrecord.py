@@ -94,7 +94,7 @@ print("UNIFIEDheader: ", UNIFIEDheader)
 # UNIFIEDfilepath = "/media/ncpa/4183-EE9B/UNIFIEDdata/MSCL_samples_" + datetime.datetime.now().strftime(
 #     "%m_%d_%Y_%H_%M") + ".txt"
 currdate = datetime.datetime.now()
-UNIFIEDfilepath = "/media/ncpa/4183-EE9B/UNIFIEDdata/MSCL_samples/" + currdate.strftime("%Y%m%d/%H%M00") +".txt"
+UNIFIEDfilepath = "/media/ncpa/4183-EE9B/UNIFIEDdata/MSCL_samples/" + currdate.strftime("%Y%m%d/%H%M00") +".bin"
 UNIFIEDfile = open(UNIFIEDfilepath, "wb")
 UNIFIEDfile.write(UNIFIEDheader)
 
@@ -182,7 +182,7 @@ while True:
                 #     "%m_%d_%Y_%H_%M") + ".txt"
                 currdate = datetime.datetime.now()
                 UNIFIEDfilepath = "/media/ncpa/4183-EE9B/UNIFIEDdata/MSCL_samples/" + currdate.strftime(
-                    "%Y%m%d/%H%M00") + ".txt"
+                    "%Y%m%d/%H%M00") + ".bin"
                 UNIFIEDfile = open(UNIFIEDfilepath, "wb")
                 recreate_UNIFIEDheader()
                 UNIFIEDfile.write(UNIFIEDheader)
