@@ -1,36 +1,99 @@
-import sys
+# This is a script designed to continuously record data from an IMU, intended for use
+# on a float owned by USM
+# There are two primary generators of data in the IMU, the raw IMU sensors and the computed Est Filter data
+# Currently being record by the IMU are the following:
+# CH_FIELD_SENSOR_SCALED_MAG_VEC, CH_FIELD_SENSOR_SCALED_AMBIENT_PRESSURE, CH_FIELD_SENSOR_SCALED_ACCEL_VEC,
+# CH_FIELD_SENSOR_ORIENTATION_QUATERNION, CH_FIELD_SENSOR_SCALED_GYRO_VEC, CH_FIELD_SENSOR_TEMPERATURE_STATISTICS,
+# CH_FIELD_SENSOR_DELTA_THETA_VEC, CH_FIELD_SENSOR_DELTA_VELOCITY_VEC, and CH_FIELD_SENSOR_ODOMETER_DATA
+# From the Est Filter:
+# CH_FIELD_ESTFILTER_ECEF_POS, CH_FIELD_ESTFILTER_ECEF_VEL, CH_FIELD_ESTFILTER_COMPENSATED_ACCEL,
+# CH_FIELD_ESTFILTER_ESTIMATED_ORIENT_QUATERNION, CH_FIELD_ESTFILTER_ESTIMATED_GRAVITY_VECTOR,
+# CH_FIELD_ESTFILTER_ESTIMATED_LINEAR_ACCEL, CH_FIELD_ESTFILTER_ESTIMATED_ACCEL_BIAS,
+# CH_FIELD_ESTFILTER_ESTIMATED_ANGULAR_RATE, CH_FIELD_ESTFILTER_ESTIMATED_GYRO_BIAS,
+# and CH_FIELD_ESTFILTER_ECEF_VEL_UNCERT
 
-import datetime as datetime
+# Active channels of type:  128 ,  CLASS_AHRS_IMU
+# # of active channels:  10
+# Channel Field:  32979  =  CH_FIELD_SENSOR_SHARED_GPS_TIMESTAMP
+# Channel Field:  32774  =  CH_FIELD_SENSOR_SCALED_MAG_VEC
+# Channel Field:  32791  =  CH_FIELD_SENSOR_SCALED_AMBIENT_PRESSURE
+# Channel Field:  32772  =  CH_FIELD_SENSOR_SCALED_ACCEL_VEC
+# Channel Field:  32778  =  CH_FIELD_SENSOR_ORIENTATION_QUATERNION
+# Channel Field:  32773  =  CH_FIELD_SENSOR_SCALED_GYRO_VEC
+# Channel Field:  32788  =  CH_FIELD_SENSOR_TEMPERATURE_STATISTICS
+# Channel Field:  32775  =  CH_FIELD_SENSOR_DELTA_THETA_VEC
+# Channel Field:  32776  =  CH_FIELD_SENSOR_DELTA_VELOCITY_VEC
+# Channel Field:  32832  =  CH_FIELD_SENSOR_ODOMETER_DATA
+# Sample Rate:  1kHz
+#
+# Active channels of type:  130 ,  CLASS_ESTFILTER
+# # of active channels:  11
+# Channel Field:  33491  =  CH_FIELD_ESTFILTER_SHARED_GPS_TIMESTAMP
+# Channel Field:  33344  =  CH_FIELD_ESTFILTER_ECEF_POS
+# Channel Field:  33345  =  CH_FIELD_ESTFILTER_ECEF_VEL
+# Channel Field:  33308  =  CH_FIELD_ESTFILTER_COMPENSATED_ACCEL
+# Channel Field:  33283  =  CH_FIELD_ESTFILTER_ESTIMATED_ORIENT_QUATERNION
+# Channel Field:  33299  =  CH_FIELD_ESTFILTER_ESTIMATED_GRAVITY_VECTOR
+# Channel Field:  33293  =  CH_FIELD_ESTFILTER_ESTIMATED_LINEAR_ACCEL
+# Channel Field:  33287  =  CH_FIELD_ESTFILTER_ESTIMATED_ACCEL_BIAS
+# Channel Field:  33294  =  CH_FIELD_ESTFILTER_ESTIMATED_ANGULAR_RATE
+# Channel Field:  33286  =  CH_FIELD_ESTFILTER_ESTIMATED_GYRO_BIAS
+# Channel Field:  33335  =  CH_FIELD_ESTFILTER_ECEF_VEL_UNCERT
+# Sample Rate:  1kHz
+#
+# Active channels of type:  145 ,  CLASS_GNSS1
+# # of active channels:  4
+# Channel Field:  37331  =  CH_FIELD_GNSS_1_SHARED_GPS_TIMESTAMP
+# Channel Field:  37124  =  CH_FIELD_GNSS_1_ECEF_POSITION
+# Channel Field:  37131  =  CH_FIELD_GNSS_1_FIX_INFO
+# Channel Field:  37152  =  CH_FIELD_GNSS_1_SATELLITE_STATUS
+# Sample Rate:  1Hz
 
-sys.path.append('/usr/lib/python3.13/dist-packages')
-import os
-
-os.environ['LD_LIBRARY_PATH'] = '/usr/lib/python3.13/dist-packages:' + os.environ.get('LD_LIBRARY_PATH', '')
-print(os.environ['LD_LIBRARY_PATH'])
-import mscl
+# FOR ALL
 import time
 import struct
-import resource
 import queue
 import datetime
+import sys
+import os
 
-# connection = mscl.Connection.Serial("COM5", 115200)
-connection = mscl.Connection.Serial("/dev/ttyACM0", 115200 * 8)
+# FOR LINUX
+# sys.path.append('/usr/lib/python3.13/dist-packages')
+# os.environ['LD_LIBRARY_PATH'] = '/usr/lib/python3.13/dist-packages:' + os.environ.get('LD_LIBRARY_PATH', '')
+# print(os.environ['LD_LIBRARY_PATH'])
+# import mscl
+# import resource
+
+# FOR WINDOWS
+from python_mscl import mscl
+
+# TODO: Add GPS information to header (number satellites, raw ECEF, valid bit?)
+#  (Just keep track of latest packet, and write latest info to header?)
+
+
+# Establish a connection to the device
+connection = mscl.Connection.Serial("COM5", 115200*8)
+# connection = mscl.Connection.Serial("/dev/ttyACM0", 115200 * 8)
 node = mscl.InertialNode(connection)
+success = node.ping()
+print("Success: ", success)
+node.setToIdle()
 
-# Get ahead of system startup
-time.sleep(15)  # sleep 15 seconds
-while True:
-    try:
-        connection = mscl.Connection.Serial("/dev/ttyACM0", 115200 * 8)
-        node = mscl.InertialNode(connection)
-        success = node.ping()
-        print("Success: ", success)
-        node.setToIdle()
-        break
-    except:
-        continue
+# Get ahead of system startup, add a window of safety
+# time.sleep(15)  # sleep 15 seconds
+# while True:
+#     try:
+#         # connection = mscl.Connection.Serial("/dev/ttyACM0", 115200 * 8)
+#         connection = mscl.Connection.Serial("COM5", 115200*8)
+#         node = mscl.InertialNode(connection)
+#         success = node.ping()
+#         print("Success: ", success)
+#         node.setToIdle()
+#         break
+#     except:
+#         continue
 
+# Procedural code in order to more easily recognize channels later, as well as some debugging information printed
 miptypes = [mscl.MipTypes.CLASS_GNSS, mscl.MipTypes.CLASS_AHRS_IMU, mscl.MipTypes.CLASS_ESTFILTER]
 # print("Node supports GNSS: ", node.features().supportsCategory(miptypes[0]))
 # print("Node features: ", node.features())
@@ -40,7 +103,7 @@ miptypeclassesfull = [enum for enum in dir(mscl.MipTypes) if enum.split("_")[0] 
 activeclasses = []
 for mipclasses in miptypeclassesfull:
     classes = getattr(mscl.MipTypes, mipclasses)
-    print("Node supports ", mipclasses, ": ", node.features().supportsCategory(classes))
+    # print("Node supports ", mipclasses, ": ", node.features().supportsCategory(classes))
     if node.features().supportsCategory(classes):
         activeclasses.append(classes)
 # print("Active classes: ", activeclasses)
@@ -50,29 +113,52 @@ for miptype in miptypefull:
     miptypedict[getattr(mscl.MipTypes, miptype)] = miptype
 # print("miptypedict: ", miptypedict)
 
-node.resume()
-packetcounter = {}
-for active in activeclasses:
-    packetcounter[active] = 0
+# for miptype in miptypes:
+#     try:
+#         chs = node.getActiveChannelFields(miptype)
+#         print("Active channels of type: ", miptype, ", ", chs)
+#         for ch in chs:
+#             print("Channel Field: ", ch.channelField(), " = ", miptypedict[ch.channelField()])
+#             print("Sample Rate: ", ch.sampleRate().prettyStr())
+#     except mscl.Error_MipCmdFailed as e:
+#         print("Failed at type: ", miptype)
 
+# for active in activeclasses:
+#     # if active not in [128, 130]:
+#     #     continue
+#     chs = node.getActiveChannelFields(active)
+#     print("Active channels of type: ", active, ", ", miptypedict[active])
+#     print("# of active channels: ", len(chs))
+#     for ch in chs:
+#         print("Channel Field: ", ch.channelField(), " = ", miptypedict[ch.channelField()])
+#         print("Sample Rate: ", ch.sampleRate().prettyStr())
+#     print()
+
+
+# Start the device back up
+node.resume()
+
+# Header initialization information
 IMUchs = node.getActiveChannelFields(128)
 ESTchs = node.getActiveChannelFields(130)
 UNIFIEDsequence = 0
 UNIFIEDfilecount = 0
 blocksperfile = 60 * 5
-# filestomake = 12
-filestomake = -1
+filestomake = -1  # -1 indicates to keep going perpetually
 samplingrate = 1000
 timetosample = 1
+latestsvcount = -1
 
 
+# As the function name says, it recreates the header if any of the information in it needs to change
 def recreate_UNIFIEDheader():
-    global UNIFIEDheader, IMUchs, ESTchs, timetosample, samplingrate, UNIFIEDsequence
+    global UNIFIEDheader, IMUchs, ESTchs, timetosample, samplingrate, UNIFIEDsequence, latestsvcount
     UNIFIEDheader = b''
     UNIFIEDheader += (len(IMUchs) + len(ESTchs) - 2).to_bytes(2)
     UNIFIEDheader += (timetosample).to_bytes(2)
     UNIFIEDheader += (samplingrate).to_bytes(2)
     UNIFIEDheader += (UNIFIEDsequence).to_bytes(2)
+    UNIFIEDheader += (latestsvcount).to_bytes(2)
     for ch in IMUchs:
         channelField = ch.channelField()
         if channelField == 32979:
@@ -86,28 +172,26 @@ def recreate_UNIFIEDheader():
 
 
 recreate_UNIFIEDheader()
-
+# Create and open the first file
 starttime = time.time()
-
 print("UNIFIEDheader: ", UNIFIEDheader)
 # UNIFIEDfilepath ="/media/ncpa/4183-EE9B/UNIFIEDdata/MSCL_samples_"+str(starttime)+".txt"
-# UNIFIEDfilepath = "/media/ncpa/4183-EE9B/UNIFIEDdata/MSCL_samples_" + datetime.datetime.now().strftime(
-#     "%m_%d_%Y_%H_%M") + ".txt"
-currdate = datetime.datetime.now()
-UNIFIEDfilepath = "/media/ncpa/4183-EE9B/UNIFIEDdata/MSCL_samples/" + currdate.strftime("%Y%m%d/%H%M00") +".bin"
-UNIFIEDfile = open(UNIFIEDfilepath, "wb")
-UNIFIEDfile.write(UNIFIEDheader)
+# basepath = "/media/ncpa/4183-EE9B/UNIFIEDdata/MSCL_samples_"
+basepath = "/UNIFIEDdata/MSCL_samples_"
+UNIFIEDfilepath = basepath + datetime.datetime.now().strftime("%m_%d_%Y_%H_%M") + ".txt"
+# UNIFIEDfile = open(UNIFIEDfilepath, "wb")
+# UNIFIEDfile.write(UNIFIEDheader)
 
-counter = 0
-datatypes = []
 # Theres a few ValuesTypes we need to be concerned about.
 # For this script, they seem to be 0, 1, 3, 8, and 10
 # from https://lord-microstrain.github.io/MSCL/Documentation/MSCL%20API%20Documentation/index.html#File:Types.h:ValueType
 # 0 is 4-byte float, 1 is 8-byte double, 3 is 2-byte unsigned int, 8 is Vector, 10 is Timestamp
 packetcount = 0
+counter = 0
 
 
 def handle_datatype(dataPoint):
+    # Takes a datapoint and converts it to the binary necessary
     storedas = dataPoint.storedAs()
     match storedas:
         case 0:  # 4byte float
@@ -120,20 +204,20 @@ def handle_datatype(dataPoint):
             timestamp = dataPoint.as_Timestamp()
             return struct.pack('L', timestamp.nanoseconds())
         case 8:  # vector with ?? dimensions
+            # print("Unsure how to handle case 8, datapoint: ", dataPoint.as_Vector())
             vector = dataPoint.as_Vector()
             returnval = b''
             for i in range(vector.size()):
+                # IMUfile.write(struct.pack('f', vector.as_floatAt(i)))
                 returnval += struct.pack('f', vector.as_floatAt(i))
             return returnval
         case _:
             print("Unknown case! ", storedas)
 
 
-IMUbody = b''
-ESTbody = b''
+# Create queues to hold packets so that they can be written together
 IMUqueue = queue.Queue()
 ESTqueue = queue.Queue()
-timewritten = False
 UNIFIEDcounter = 0
 while True:
     # break
@@ -142,57 +226,65 @@ while True:
     # packetcount += len(packets)
     packetcount += 1
     delta = time.time() - starttime
+
     for packet in packets:
-        if UNIFIEDcounter % 10000 == 0 and packet.descriptorSet() == 128:
-            free_memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024
-            print("Rate of UNIFIEDcounter: ", UNIFIEDcounter / (time.time() - starttime), free_memory)
-
-
-        if packet.descriptorSet() == 128:
+        # Add the appropriate packets to their queues
+        if packet.descriptorSet() == 128:  # 128 is the packet descriptor code for raw IMU data
             IMUqueue.put(packet)
-        elif packet.descriptorSet() == 130:
+        elif packet.descriptorSet() == 130:  # 130 is packet descriptor code for EST data
             ESTqueue.put(packet)
-
+        elif packet.descriptorSet() == 145:
+            print("GPS data:")
+            for dataPoint in packet.data():
+                if dataPoint.field() == 37152: # Satellite status information, extraneous
+                    continue
+                if dataPoint.channelName() == "gnss1_gnssFixSvCount":
+                    latestsvcount = dataPoint.as_uint16()
+                # print(dataPoint.field(), dataPoint.channelName(), miptypedict[dataPoint.field()], dataPoint.as_float())
+            print("Latest sv count: ", latestsvcount)
+        # If both queues have a packet inside of them, pop one from both and write to the file
         if IMUqueue.qsize() > 0 and ESTqueue.qsize() > 0:
             IMUpacket = IMUqueue.get()
             IMUpoints = IMUpacket.data()
             UNIFIEDcounter += 1
             for dataPoint in IMUpoints:
-                if UNIFIEDcounter % (samplingrate * timetosample) == 1 and dataPoint.field() == 32979:
-                    UNIFIEDfile.write(handle_datatype(dataPoint))
-                if dataPoint.field() != 32979:
-                    UNIFIEDfile.write(handle_datatype(dataPoint))
+                if UNIFIEDcounter % (
+                        samplingrate * timetosample) == 1 and dataPoint.field() == 32979:  # If its the first piece of data in a block, write time info
+                    # UNIFIEDfile.write(handle_datatype(dataPoint))
+                    handle_datatype(dataPoint)
+                if dataPoint.field() != 32979:  # 32979 is the field code for a timestamp in the raw data
+                    # UNIFIEDfile.write(handle_datatype(dataPoint))
+                    handle_datatype(dataPoint)
             ESTpacket = ESTqueue.get()
             ESTpoints = ESTpacket.data()
             for dataPoint in ESTpoints:
-                if dataPoint.field() != 33491:
-                    UNIFIEDfile.write(handle_datatype(dataPoint))
+                if dataPoint.field() != 33491:  # 33491 is the field code for a timestamp in the est data
+                    # UNIFIEDfile.write(handle_datatype(dataPoint))
+                    handle_datatype(dataPoint)
         else:
             continue  # only advance to latter portion if youve added a packet!
 
+        # If enough packets have been written to the file, end the file and create a new file
         if UNIFIEDcounter == samplingrate * timetosample * blocksperfile:
-            UNIFIEDfile.close()
+            # UNIFIEDfile.close()
             UNIFIEDsequence = 0
             starttime = time.time()
             UNIFIEDfilecount += 1
             UNIFIEDcounter = 0
             if UNIFIEDfilecount < filestomake or filestomake == -1:  # if -1 always continue
                 # UNIFIEDfilepath = "/media/ncpa/4183-EE9B/UNIFIEDdata/MSCL_samples_"+str(starttime)+".txt"
-                # UNIFIEDfilepath = "/media/ncpa/4183-EE9B/UNIFIEDdata/MSCL_samples_" + datetime.datetime.now().strftime(
-                #     "%m_%d_%Y_%H_%M") + ".txt"
-                currdate = datetime.datetime.now()
-                UNIFIEDfilepath = "/media/ncpa/4183-EE9B/UNIFIEDdata/MSCL_samples/" + currdate.strftime(
-                    "%Y%m%d/%H%M00") + ".bin"
-                UNIFIEDfile = open(UNIFIEDfilepath, "wb")
+                UNIFIEDfilepath = "/media/ncpa/4183-EE9B/UNIFIEDdata/MSCL_samples_" + datetime.datetime.now().strftime(
+                    "%m_%d_%Y_%H_%M") + ".txt"
+                # UNIFIEDfile = open(UNIFIEDfilepath, "wb")
                 recreate_UNIFIEDheader()
-                UNIFIEDfile.write(UNIFIEDheader)
+                # UNIFIEDfile.write(UNIFIEDheader)
                 print("UNIFIEDheader: ", UNIFIEDheader)
         elif UNIFIEDcounter % (samplingrate * timetosample) == 0:
             UNIFIEDsequence += 1
             recreate_UNIFIEDheader()
-            UNIFIEDfile.write(UNIFIEDheader)
+            # UNIFIEDfile.write(UNIFIEDheader)
     if UNIFIEDfilecount >= filestomake and filestomake != -1:  # if -1 never disconnect
         connection.disconnect()
         print("Disconnected")
         break
-UNIFIEDfile.close()
+# UNIFIEDfile.close()
