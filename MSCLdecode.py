@@ -10,12 +10,7 @@ print(os.environ['LD_LIBRARY_PATH'])
 from python_mscl import mscl
 import time
 import struct
-from collections import namedtuple
-import plotly.graph_objs as go
 import numpy as np
-import plotly.io as pio
-pio.renderers.default = "browser"
-import matplotlib.pyplot as plt
 
 
 # filepath = "./datasave/MSCL_samples_1745509274.6961424.txt"
@@ -33,11 +28,12 @@ GNSSECEFS = [b'\x91\x04', b'\x92\x04']
 directory = "D:/UNIFIEDdata/MSCL_samples/20250522/"
 directory2 = "D:/UNIFIEDdata/MSCL_samples/20250523/"
 
+
 fieldsizes = []
 fieldidentities = ()
 pattern = []
 
-
+# The point of this function is to convert a list of field ids into a number representing the size of each sample
 def determine_total_size(fields):
     global fieldsizes, fieldidentities, pattern
     fieldsizes = []
@@ -51,7 +47,7 @@ def determine_total_size(fields):
         # Pressure is 1 float
         # in struct, l is long and 4byte int, f is float and 4byte float, d is double and 8byte float
         fieldidentities = fieldidentities + (miptypedict[field],)
-        match field:
+        match field: # Match each field as it comes in to the corresponding pattern. The final output of pattern can be used to read through each sample
             case 33344:  # CH_FIELD_ESTFILTER_ECEF_POS
                 fieldsizes.append(24)  # 24 bytes, i.e., 3 8byte floats
                 pattern.append("3d")
@@ -120,6 +116,7 @@ def determine_total_size(fields):
     return totalsize
 
 
+# This takes a single sample of each channel and unwraps it according to the specified size and pattern of each channel
 def data_unpack(dataline):
     output = []
     position = 0
@@ -133,23 +130,29 @@ def data_unpack(dataline):
 decimationfactor = 1000 # Get 1 out of each {decimationfactor} samples and add to csv!
 
 pos = []
-datafile = open("datafile.csv", "w")
+datafile = open("datafile.csv", "w") # Create the CSVs used to storage the decimated data in plaintext
+headerfile = open("headerfile.csv", "w")
+# headerfile.write("numfields,timetosample,samplingrate,sequence,svcount,tow,weeknumber\n")
+headerfile.write("numfields,timetosample,samplingrate,sequence,tow,weeknumber\n") #svcount is in the newer versions of this code
 headersize, totalsize, blocksize = 0, 0, 0
 
-ls = os.listdir(directory)
-ls2 = os.listdir(directory2)
+# Setup a list of files which we're looking at
+# ls = os.listdir(directory)
+# ls2 = os.listdir(directory2)
 files = []
-for i, file in enumerate(ls):
-    # 165600
-    # if "170000" <= file[:-4] <= "180000":
-        # print(file)
-    files.append(directory+file)
-for i, file in enumerate(ls2):
-    files.append(directory2+file)
+# for i, file in enumerate(ls):
+#     files.append(directory+file)
+# for i, file in enumerate(ls2):
+#     files.append(directory2+file)
+directory3 = "./UNIFIEDdata/MSCL_samples/{datehere}/"
+ls3 = os.listdir(directory3)
+for i, file in enumerate(ls3):
+    files.append(directory3+file)
 # ls += ls2
 # exit()
 xsave = 0
 
+# Iterate over each file and decode it
 for filecount, filepath in enumerate(files):
     # print("\n\n")
     numunknowns = 0
@@ -162,55 +165,47 @@ for filecount, filepath in enumerate(files):
     while filesize - file.tell() > 0:
         # header is 2byte (num channels), 2byte (number of seconds in each block), 2byte (sampling rate), 2 byte(position in block), 2byte sv count
         # then 2 bytes each for each channel, then 10byte timestamp
-        if count == 0:
-            numfields = int.from_bytes(file.read(2))
-            timetosample = int.from_bytes(file.read(2))
-            samplingrate = int.from_bytes(file.read(2))
-            sequence = int.from_bytes(file.read(2))
-            svcount = int.from_bytes(file.read(2))
-            numsamples = timetosample * samplingrate
-            # Read in timestamp (12 bytes total? 8 and 4?)
-            fields = []
-            for i in range(numfields):
-                fields.append(int.from_bytes(file.read(2)))
-            headersize = 10 + 2 * numfields + 10
-            totalsize = determine_total_size(fields)
-            blocksize = headersize + totalsize * timetosample * samplingrate
-            if sequence == 0 and filecount == 0:
-                print(fieldidentities, pattern)
-            #     exit()
-            if filecount == 0:
-                for j in range(len(fieldidentities)):
-                    tmppat = pattern[j]
-                    fieldidentity = fieldidentities[j]
-                    datafile.write("tow, weeknumber")
-                    if tmppat[0] == "3":
-                        datafile.write(f",{fieldidentity}_x,{fieldidentity}_y,{fieldidentity}_z")
-                    elif tmppat[0] == "4":
-                        datafile.write(f",{fieldidentity}_x,{fieldidentity}_y,{fieldidentity}_z,{fieldidentity}_w")
-                    elif tmppat[0] == "f":
-                        datafile.write(f",{fieldidentity}")
-                    elif tmppat[0] == "2":
-                        datafile.write(f",{fieldidentity}_x,{fieldidentity}_y")
-                datafile.write("\n")
-                # datafile.write(f"{fieldidentities[0]}")
-                # for fieldidentity in fieldidentities[1:]:
-                #     datafile.write(f",{fieldidentity}")
-                # datafile.write("\n")
-                # datafile.close()
-                # exit()
-            timestamp = file.read(10)
-            # Timestamp is composed of tow (8bytes) and weeknumber (2bytes)
-            tow, weeknumber = struct.unpack("dh", timestamp)
-        else:
-            header = file.read(headersize)
-            timestamp = header[-10:]
-            tow, weeknumber = struct.unpack("dh", timestamp)
+        numfields = int.from_bytes(file.read(2))
+        timetosample = int.from_bytes(file.read(2))
+        samplingrate = int.from_bytes(file.read(2))
+        sequence = int.from_bytes(file.read(2))
+        # svcount = int.from_bytes(file.read(2)) # svcount is in the newer versions of this code
+        numsamples = timetosample * samplingrate
+        fields = []
+        for i in range(numfields):
+            fields.append(int.from_bytes(file.read(2)))
+        # headersize = 10 + 2 * numfields + 10 # svcount is in the newer versions of this code
+        headersize = 8 + 2 * numfields + 10
+        totalsize = determine_total_size(fields)
+        blocksize = headersize + totalsize * timetosample * samplingrate
+        if sequence == 0 and filecount == 0:
+            print(fieldidentities, pattern)
+        # Timestamp is composed of tow (8bytes) and weeknumber (2bytes)
+        timestamp = file.read(10)
+        tow, weeknumber = struct.unpack("dh", timestamp)
+        # Create the header of the csv from the very first file
+        if filecount == 0 and sequence==0:
+            # print("Pattern: ", pattern, len(pattern))
+            # print("Header size: ", headersize)
+            # print("Total size: ", totalsize)
+            datafile.write("tow, weeknumber")
+            for j in range(len(fieldidentities)):
+                tmppat = pattern[j]
+                fieldidentity = fieldidentities[j]
+                if tmppat[0] == "3":
+                    datafile.write(f",{fieldidentity}_x,{fieldidentity}_y,{fieldidentity}_z")
+                elif tmppat[0] == "4":
+                    datafile.write(f",{fieldidentity}_x,{fieldidentity}_y,{fieldidentity}_z,{fieldidentity}_w")
+                elif tmppat[0] == "f":
+                    datafile.write(f",{fieldidentity}")
+                elif tmppat[0] == "2":
+                    datafile.write(f",{fieldidentity}_x,{fieldidentity}_y")
+            datafile.write("\n")
+        headerfile.write(f"{numfields},{timetosample},{samplingrate},{sequence},{svcount},{tow},{weeknumber}\n")
         # if sequence == 0:
         #     print(
         #         f"Numfields {numfields}, numsamples {numsamples}, sampling rate{samplingrate}, samplingtime {timetosample}, totalsize {totalsize}, timestamp {timestamp}, sequence {sequence}, headersize {headersize}")
 
-        # Data = namedtuple("Data", fieldidentities)
         for i in range(numsamples):
             data = file.read(totalsize)
             # if i == 0:
